@@ -1,0 +1,22 @@
+# Pembersih dan Penghapus Aplikasi - Contoh Penggunaan
+
+## Penggunaan Dasar
+python uninstaller.py "Chrome"
+
+## Pembersihan Menyeluruh (menghapus semua file dan entri registry)
+python uninstaller.py "Google Chrome" --thorough
+
+## Simulasi (pratinjau apa yang akan dihapus tanpa membuat perubahan)
+python uninstaller.py "Firefox" --dry-run
+
+## Tanpa Cadangan (lewati pembuatan cadangan file dan registry)
+python uninstaller.py "Adobe Reader" --no-backup
+
+## Menggabungkan Opsi
+python uninstaller.py "Microsoft Office" --thorough --dry-run
+python uninstaller.py "Spotify" --thorough --no-backup
+
+# Catatan: Selalu gunakan tanda kutip untuk nama aplikasi yang memiliki spasi
+# Contoh:
+python uninstaller.py "Google Chrome"
+python uninstaller.py "Microsoft Office 365" 

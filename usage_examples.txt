@@ -1,0 +1,22 @@
+# Advanced Application Uninstaller - Usage Examples
+
+## Basic Usage
+python uninstaller.py "Chrome"
+
+## Thorough Cleaning (removes all files and registry entries)
+python uninstaller.py "Google Chrome" --thorough
+
+## Dry Run (preview what would be deleted without making changes)
+python uninstaller.py "Firefox" --dry-run
+
+## No Backup (skip creating backup of files and registry)
+python uninstaller.py "Adobe Reader" --no-backup
+
+## Combining Options
+python uninstaller.py "Microsoft Office" --thorough --dry-run
+python uninstaller.py "Spotify" --thorough --no-backup
+
+# Note: Always enclose application names with spaces in quotes
+# For example:
+python uninstaller.py "Google Chrome"
+python uninstaller.py "Microsoft Office 365" 
