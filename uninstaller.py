@@ -37,6 +37,73 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Function to get list of all installed applications
+def get_installed_applications() -> List[Dict]:
+    """Get a list of all installed applications from the registry."""
+    applications = []
+    registry_locations = [
+        winreg.HKEY_CURRENT_USER,
+        winreg.HKEY_LOCAL_MACHINE
+    ]
+    registry_paths = [
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+    ]
+    
+    logger.info("Scanning registry for installed applications...")
+    
+    for hkey in registry_locations:
+        for reg_path in registry_paths:
+            try:
+                logger.debug(f"Scanning {reg_path} in {'HKEY_CURRENT_USER' if hkey == winreg.HKEY_CURRENT_USER else 'HKEY_LOCAL_MACHINE'}...")
+                with winreg.OpenKey(hkey, reg_path) as key:
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        try:
+                            subkey_name = winreg.EnumKey(key, i)
+                            with winreg.OpenKey(key, subkey_name) as subkey:
+                                try:
+                                    display_name = winreg.QueryValueEx(subkey, "DisplayName")[0]
+                                    logger.debug(f"Found: {display_name}")
+                                    
+                                    # Skip entries that look like Windows components or updates
+                                    if ("KB" in display_name and any(x in display_name for x in ["Update", "Security Update", "Hotfix"])) or \
+                                       any(x in display_name for x in ["Security Update for", "Update for"]):
+                                        continue
+                                    
+                                    app_info = {
+                                        "DisplayName": display_name,
+                                        "Registry": f"{hkey}\\{reg_path}\\{subkey_name}"
+                                    }
+                                    
+                                    # Get other useful information
+                                    for value_name in ["UninstallString", "InstallLocation", "Publisher", "DisplayVersion"]:
+                                        try:
+                                            app_info[value_name] = winreg.QueryValueEx(subkey, value_name)[0]
+                                        except:
+                                            pass
+                                            
+                                    applications.append(app_info)
+                                except (WindowsError, TypeError, ValueError) as e:
+                                    pass
+                        except WindowsError as e:
+                            continue
+            except WindowsError as e:
+                logger.warning(f"Error accessing {reg_path}: {e}")
+                continue
+    
+    logger.info(f"Found {len(applications)} applications before filtering.")
+    
+    # Remove duplicates (same DisplayName) and sort by DisplayName
+    unique_apps = {}
+    for app in applications:
+        if app["DisplayName"] not in unique_apps:
+            unique_apps[app["DisplayName"]] = app
+    
+    sorted_apps = sorted(unique_apps.values(), key=lambda x: x["DisplayName"].lower())
+    logger.info(f"Found {len(sorted_apps)} unique applications after filtering.")
+    
+    return sorted_apps
+
 class AppUninstaller:
     def __init__(self, app_name: str, thorough: bool = False, dry_run: bool = False, backup: bool = True):
         self.app_name = app_name
@@ -524,11 +591,167 @@ class AppUninstaller:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Advanced Application Uninstaller and Cleaner")
-    parser.add_argument("app_name", help="Name of the application to uninstall")
+    parser.add_argument("--app-name", help="Name of the application to uninstall (optional)")
     parser.add_argument("--thorough", "-t", action="store_true", help="Enable thorough cleaning mode")
     parser.add_argument("--dry-run", "-d", action="store_true", help="Preview changes without actually deleting anything")
     parser.add_argument("--no-backup", "-n", action="store_true", help="Disable backup creation")
+    parser.add_argument("--list-only", "-l", action="store_true", help="Only list installed applications without uninstalling")
     return parser.parse_args()
+
+def display_app_selection_menu(apps: List[Dict]) -> List[int]:
+    """Display a menu of installed applications and return the selected indices."""
+    # Sort applications by name
+    sorted_apps = apps.copy()
+    
+    # Calculate the maximum width needed for each column
+    max_name_len = max(len(app.get("DisplayName", "Unknown")[:50]) for app in sorted_apps)
+    max_version_len = max(len(str(app.get("DisplayVersion", ""))) for app in sorted_apps)
+    max_publisher_len = max(len(str(app.get("Publisher", ""))) for app in sorted_apps)
+    
+    # Make sure column widths are at least the header length
+    max_name_len = max(max_name_len, len("Application Name"))
+    max_version_len = max(max_version_len, len("Version"))
+    max_publisher_len = max(max_publisher_len, len("Publisher"))
+    
+    # Limit column widths to reasonable values
+    max_name_len = min(max_name_len, 50)
+    max_version_len = min(max_version_len, 15)
+    max_publisher_len = min(max_publisher_len, 30)
+    
+    # Terminal width check
+    try:
+        terminal_width = os.get_terminal_size().columns
+    except:
+        terminal_width = 100  # Default if we can't determine terminal width
+    
+    # Adjust column widths to fit terminal
+    total_width = 4 + max_name_len + 2 + max_version_len + 2 + max_publisher_len
+    if total_width > terminal_width:
+        # Reduce columns proportionally
+        excess = total_width - terminal_width + 5  # Add some margin
+        name_ratio = max_name_len / total_width
+        version_ratio = max_version_len / total_width
+        publisher_ratio = max_publisher_len / total_width
+        
+        max_name_len = max(20, int(max_name_len - excess * name_ratio))
+        max_version_len = max(8, int(max_version_len - excess * version_ratio))
+        max_publisher_len = max(10, int(max_publisher_len - excess * publisher_ratio))
+    
+    # Display the header with pretty formatting
+    header_line = f"{'#':<4} {'Application Name':<{max_name_len}} {'Version':<{max_version_len}} {'Publisher':<{max_publisher_len}}"
+    separator = "-" * len(header_line)
+    
+    print("\n" + "=" * len(header_line))
+    print("INSTALLED APPLICATIONS")
+    print("=" * len(header_line))
+    print(header_line)
+    print(separator)
+    
+    # Display applications in groups of 20 with pagination
+    page_size = 20
+    total_pages = (len(sorted_apps) + page_size - 1) // page_size
+    current_page = 1
+    
+    while True:
+        # Calculate start and end indices for the current page
+        start_idx = (current_page - 1) * page_size
+        end_idx = min(start_idx + page_size, len(sorted_apps))
+        
+        # Display the applications for the current page
+        for i in range(start_idx, end_idx):
+            app = sorted_apps[i]
+            
+            # Truncate long values to fit columns
+            name = (app.get("DisplayName", "Unknown")[:max_name_len-3] + "...") if len(app.get("DisplayName", "Unknown")) > max_name_len else app.get("DisplayName", "Unknown")
+            version = (str(app.get("DisplayVersion", ""))[:max_version_len-3] + "...") if len(str(app.get("DisplayVersion", ""))) > max_version_len else app.get("DisplayVersion", "")
+            publisher = (str(app.get("Publisher", ""))[:max_publisher_len-3] + "...") if len(str(app.get("Publisher", ""))) > max_publisher_len else app.get("Publisher", "")
+            
+            print(f"{i+1:<4} {name:<{max_name_len}} {version:<{max_version_len}} {publisher:<{max_publisher_len}}")
+        
+        # Show pagination info if needed
+        if total_pages > 1:
+            print(f"\nPage {current_page} of {total_pages}")
+            print("(p: previous page, n: next page)")
+        
+        # Prompt for selection
+        print("\nEnter the numbers of applications you want to uninstall (comma-separated) or 'all' for all apps:")
+        print("Examples: 1,3,5 or 5-10 or all")
+        print("Commands: q/quit/exit to exit, help for help")
+        
+        if total_pages > 1:
+            selection = input(f"[Page {current_page}/{total_pages}] > ").strip().lower()
+        else:
+            selection = input("> ").strip().lower()
+        
+        # Handle pagination commands
+        if selection == 'n' and current_page < total_pages:
+            current_page += 1
+            print("\n" * 5)  # Add some space before showing the next page
+            continue
+        elif selection == 'p' and current_page > 1:
+            current_page -= 1
+            print("\n" * 5)  # Add some space before showing the previous page
+            continue
+        elif selection == 'help':
+            print("\nHelp:")
+            print("  - Enter numbers separated by commas (e.g., 1,3,5)")
+            print("  - Enter a range with a dash (e.g., 5-10)")
+            print("  - Type 'all' to select all applications")
+            print("  - Type 'n' for the next page, 'p' for the previous page")
+            print("  - Type 'q', 'quit', or 'exit' to exit")
+            print("  - Type 'help' to see this help message")
+            continue
+        elif selection in ('q', 'quit', 'exit'):
+            return []
+        elif selection == 'all':
+            return list(range(len(sorted_apps)))
+            
+        # Parse user selection
+        try:
+            selected_indices = []
+            parts = selection.split(',')
+            
+            for part in parts:
+                part = part.strip()
+                if '-' in part:
+                    # Range selection (e.g., 5-9)
+                    try:
+                        start, end = map(int, part.split('-'))
+                        if start < 1 or end > len(sorted_apps):
+                            print(f"Invalid range {start}-{end}. Please use numbers between 1 and {len(sorted_apps)}.")
+                            continue
+                        selected_indices.extend(range(start-1, end))
+                    except ValueError:
+                        print(f"Invalid range format: {part}")
+                else:
+                    # Single number
+                    try:
+                        idx = int(part) - 1
+                        if idx < 0 or idx >= len(sorted_apps):
+                            print(f"Invalid selection {part}. Please use numbers between 1 and {len(sorted_apps)}.")
+                            continue
+                        selected_indices.append(idx)
+                    except ValueError:
+                        if part:  # Only show error if part is not empty
+                            print(f"Invalid number: {part}")
+            
+            if not selected_indices:
+                print("No valid selections. Please try again.")
+                continue
+                
+            # Show a summary of selections and confirm
+            print("\nYou selected:")
+            for idx in selected_indices:
+                print(f" - {sorted_apps[idx]['DisplayName']}")
+            
+            confirm = input("\nIs this correct? (y/n): ").strip().lower()
+            if confirm == 'y':
+                return selected_indices
+            else:
+                print("Selection cancelled. Please try again.")
+                
+        except ValueError:
+            print("Invalid input. Please enter comma-separated numbers or 'all'.")
 
 def main():
     # Check if running on Windows
@@ -539,8 +762,13 @@ def main():
     # Parse command line arguments
     args = parse_arguments()
     
-    # Request admin privileges (required for many operations)
-    request_admin()
+    # Skip admin check for list-only mode
+    need_admin = not args.list_only
+    
+    # Request admin privileges if needed (except for list-only mode)
+    if need_admin and not is_admin():
+        logger.info("Requesting administrator privileges...")
+        request_admin()
     
     # Print banner
     print("""
@@ -551,51 +779,125 @@ def main():
     ╚═══════════════════════════════════════════════╝
     """)
     
+    # Get list of installed applications
+    print("\nScanning for installed applications...")
+    installed_apps = get_installed_applications()
+    
+    if args.list_only:
+        print(f"\nFound {len(installed_apps)} installed applications:")
+        for i, app in enumerate(installed_apps, 1):
+            print(f"{i:3}. {app.get('DisplayName', 'Unknown')} "
+                  f"({app.get('DisplayVersion', 'Unknown Version')})")
+        sys.exit(0)
+    
+    # If app_name is specified, use it; otherwise, show selection menu
+    if args.app_name:
+        app_names = [args.app_name]
+        # Use command line arguments for mode options
+        thorough = args.thorough
+        dry_run = args.dry_run
+        backup = not args.no_backup
+    else:
+        selected_indices = display_app_selection_menu(installed_apps)
+        if not selected_indices:
+            print("No applications selected. Exiting.")
+            sys.exit(0)
+            
+        app_names = [installed_apps[i]["DisplayName"] for i in selected_indices]
+        
+        # Add interactive mode selection if no command line arguments were provided
+        if not (args.thorough or args.dry_run or args.no_backup):
+            print("\n=== Uninstallation Mode Selection ===")
+            
+            # Thorough mode selection
+            while True:
+                thorough_choice = input("Enable thorough cleaning? (y/N): ").strip().lower()
+                if thorough_choice in ['y', 'yes', 'n', 'no', '']:
+                    thorough = thorough_choice in ['y', 'yes']
+                    break
+                print("Please enter 'y' or 'n'")
+            
+            # Dry run mode selection
+            while True:
+                dry_run_choice = input("Simulation mode (no actual changes)? (y/N): ").strip().lower()
+                if dry_run_choice in ['y', 'yes', 'n', 'no', '']:
+                    dry_run = dry_run_choice in ['y', 'yes']
+                    break
+                print("Please enter 'y' or 'n'")
+            
+            # Backup mode selection
+            while True:
+                backup_choice = input("Create backups before deletion? (Y/n): ").strip().lower()
+                if backup_choice in ['y', 'yes', 'n', 'no', '']:
+                    backup = backup_choice in ['y', 'yes', '']  # Default is Yes
+                    break
+                print("Please enter 'y' or 'n'")
+                
+            print("\n=== Selected Options ===")
+            print(f"Thorough Cleaning: {'Enabled' if thorough else 'Disabled'}")
+            print(f"Simulation Mode: {'Enabled' if dry_run else 'Disabled'}")
+            print(f"Create Backups: {'Enabled' if backup else 'Disabled'}")
+        else:
+            # Use command line arguments
+            thorough = args.thorough
+            dry_run = args.dry_run
+            backup = not args.no_backup
+    
     # Confirm with user
-    if not args.dry_run:
-        print(f"\nWarning: You are about to uninstall {args.app_name} and remove associated data.")
-        print("This operation cannot be undone" + (" (although backups will be created)" if not args.no_backup else ""))
+    if not dry_run:
+        print(f"\nWarning: You are about to uninstall {len(app_names)} application(s):")
+        for name in app_names:
+            print(f" - {name}")
+        print("This operation cannot be undone" + (" (although backups will be created)" if backup else ""))
         confirmation = input("\nDo you want to continue? (y/N): ")
         
         if confirmation.lower() != 'y':
             print("Operation cancelled")
             sys.exit(0)
     
-    # Initialize and run the uninstaller
-    uninstaller = AppUninstaller(
-        args.app_name,
-        thorough=args.thorough,
-        dry_run=args.dry_run,
-        backup=not args.no_backup
-    )
-    
-    print(f"\nStarting uninstallation process for {args.app_name}...")
-    print(f"Mode: {'Dry Run (no actual changes)' if args.dry_run else 'Real Uninstallation'}")
-    print(f"Thorough cleaning: {'Enabled' if args.thorough else 'Disabled'}")
-    print(f"Backup creation: {'Disabled' if args.no_backup else 'Enabled'}")
-    
-    try:
-        # Perform the uninstallation
-        results = uninstaller.uninstall()
+    # Process each selected application
+    for app_name in app_names:
+        print(f"\n{'='*60}")
+        print(f"Processing: {app_name}")
+        print(f"{'='*60}")
         
-        # Generate and display the report
-        report = uninstaller.generate_report(results)
-        print("\n" + report)
+        # Initialize and run the uninstaller
+        uninstaller = AppUninstaller(
+            app_name,
+            thorough=thorough,
+            dry_run=dry_run,
+            backup=backup
+        )
         
-        # Save the report to a file
-        report_file = f"uninstall_report_{args.app_name}.txt"
-        with open(report_file, "w") as f:
-            f.write(report)
+        print(f"\nStarting uninstallation process for {app_name}...")
+        print(f"Mode: {'Dry Run (no actual changes)' if dry_run else 'Real Uninstallation'}")
+        print(f"Thorough cleaning: {'Enabled' if thorough else 'Disabled'}")
+        print(f"Backup creation: {'Disabled' if not backup else 'Enabled'}")
+        
+        try:
+            # Perform the uninstallation
+            results = uninstaller.uninstall()
             
-        print(f"\nDetailed report saved to: {os.path.abspath(report_file)}")
-        
-    except KeyboardInterrupt:
-        print("\nOperation cancelled by user")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        print(f"\nAn unexpected error occurred: {e}")
-        sys.exit(1)
+            # Generate and display the report
+            report = uninstaller.generate_report(results)
+            print("\n" + report)
+            
+            # Save the report to a file
+            report_file = f"uninstall_report_{app_name.replace(' ', '_').replace('/', '_').replace('\\', '_')}.txt"
+            with open(report_file, "w") as f:
+                f.write(report)
+                
+            print(f"\nDetailed report saved to: {os.path.abspath(report_file)}")
+            
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while uninstalling {app_name}: {e}")
+            print(f"\nAn unexpected error occurred while uninstalling {app_name}: {e}")
+            continue
+    
+    print("\nAll selected applications have been processed.")
 
 if __name__ == "__main__":
     main() 

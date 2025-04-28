@@ -1,22 +1,38 @@
 # Pembersih dan Penghapus Aplikasi - Contoh Penggunaan
 
+## Deteksi Otomatis dan Pemilihan (fitur baru)
+# Tampilkan menu interaktif semua aplikasi yang terinstal
+python uninstaller.py
+
+# Hanya tampilkan daftar aplikasi terinstal tanpa menghapus
+python uninstaller.py --list-only
+
 ## Penggunaan Dasar
-python uninstaller.py "Chrome"
+# Hapus aplikasi tertentu berdasarkan nama
+python uninstaller.py --app-name "Chrome"
 
 ## Pembersihan Menyeluruh (menghapus semua file dan entri registry)
-python uninstaller.py "Google Chrome" --thorough
+python uninstaller.py --app-name "Google Chrome" --thorough
 
 ## Simulasi (pratinjau apa yang akan dihapus tanpa membuat perubahan)
-python uninstaller.py "Firefox" --dry-run
+python uninstaller.py --app-name "Firefox" --dry-run
 
 ## Tanpa Cadangan (lewati pembuatan cadangan file dan registry)
-python uninstaller.py "Adobe Reader" --no-backup
+python uninstaller.py --app-name "Adobe Reader" --no-backup
 
 ## Menggabungkan Opsi
-python uninstaller.py "Microsoft Office" --thorough --dry-run
-python uninstaller.py "Spotify" --thorough --no-backup
+python uninstaller.py --app-name "Microsoft Office" --thorough --dry-run
+python uninstaller.py --app-name "Spotify" --thorough --no-backup
 
 # Catatan: Selalu gunakan tanda kutip untuk nama aplikasi yang memiliki spasi
 # Contoh:
-python uninstaller.py "Google Chrome"
-python uninstaller.py "Microsoft Office 365" 
+python uninstaller.py --app-name "Google Chrome"
+python uninstaller.py --app-name "Microsoft Office 365"
+
+# Tips Mode Interaktif:
+# - Gunakan paginasi untuk navigasi melalui daftar aplikasi (n: halaman berikutnya, p: halaman sebelumnya)
+# - Pilih beberapa aplikasi dengan nomor yang dipisahkan koma (misal: 1,3,5)
+# - Pilih rentang aplikasi menggunakan tanda hubung (misal: 5-10)
+# - Ketik 'all' untuk memilih semua aplikasi
+# - Ketik 'q', 'quit', atau 'exit' untuk keluar tanpa menghapus
+# - Ketik 'help' untuk melihat informasi bantuan 

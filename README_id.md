@@ -4,6 +4,9 @@ Alat yang kuat untuk menghapus aplikasi Windows secara menyeluruh dan membersihk
 
 ## Fitur
 
+- **Deteksi Otomatis**: Secara otomatis mendeteksi semua aplikasi terinstal untuk pemilihan yang mudah
+- **Penghapusan Batch**: Menghapus beberapa aplikasi sekaligus
+- **Pemilihan Mode Interaktif**: Memilih mode penghapusan secara interaktif saat menjalankan program
 - **Penghapusan Menyeluruh**: Menghapus aplikasi dan semua data terkait
 - **Pembersihan Registry**: Memindai dan menghapus entri registry yang berhubungan dengan aplikasi
 - **Pembersihan Sistem File**: Menemukan dan menghapus file dan direktori yang tersisa
@@ -23,18 +26,27 @@ Alat yang kuat untuk menghapus aplikasi Windows secara menyeluruh dan membersihk
 Tidak diperlukan instalasi. Cukup unduh skrip dan jalankan dengan Python.
 
 ```bash
-git clone https://github.com/yourusername/app-uninstaller-cleaner.git
+git clone https://github.com/AdamOfficialDev/app-uninstaller-cleaner.git
 cd app-uninstaller-cleaner
 ```
 
 ## Penggunaan
 
 ```bash
-python uninstaller.py "Nama Aplikasi"
+# Luncurkan mode interaktif untuk memilih aplikasi yang akan dihapus
+python uninstaller.py
+
+# Tampilkan semua aplikasi terinstal tanpa menghapus
+python uninstaller.py --list-only
+
+# Hapus aplikasi tertentu berdasarkan nama
+python uninstaller.py --app-name "Nama Aplikasi"
 ```
 
 ### Opsi Baris Perintah
 
+- `--app-name "Nama Aplikasi"`: Tentukan aplikasi yang akan dihapus (opsional)
+- `--list-only` atau `-l`: Hanya menampilkan aplikasi terinstal tanpa menghapus
 - `--thorough` atau `-t`: Aktifkan mode pembersihan menyeluruh (memindai semua jejak aplikasi)
 - `--dry-run` atau `-d`: Pratinjau perubahan tanpa benar-benar menghapus apapun
 - `--no-backup` atau `-n`: Nonaktifkan pembuatan cadangan
@@ -42,31 +54,39 @@ python uninstaller.py "Nama Aplikasi"
 ### Contoh
 
 ```bash
-# Penghapusan dasar
-python uninstaller.py "Google Chrome"
+# Luncurkan menu pemilihan interaktif untuk memilih aplikasi yang akan dihapus
+python uninstaller.py
+
+# Tampilkan semua aplikasi terinstal
+python uninstaller.py --list-only
+
+# Penghapusan dasar aplikasi tertentu
+python uninstaller.py --app-name "Google Chrome"
 
 # Penghapusan menyeluruh dengan cadangan
-python uninstaller.py "Adobe Photoshop" --thorough
+python uninstaller.py --app-name "Adobe Photoshop" --thorough
 
 # Pratinjau apa yang akan dihapus tanpa melakukan perubahan
-python uninstaller.py "Microsoft Office" --dry-run
+python uninstaller.py --app-name "Microsoft Office" --dry-run
 
 # Penghapusan tanpa membuat cadangan
-python uninstaller.py "Spotify" --no-backup
+python uninstaller.py --app-name "Spotify" --no-backup
 
 # Penghapusan menyeluruh tanpa cadangan
-python uninstaller.py "Dropbox" --thorough --no-backup
+python uninstaller.py --app-name "Dropbox" --thorough --no-backup
 ```
 
 ## Cara Kerja
 
-1. **Pemindaian Registry**: Mencari entri penghapusan di registry Windows
-2. **Eksekusi Uninstaller**: Menjalankan uninstaller resmi aplikasi jika tersedia
-3. **Pembersihan Registry**: Menghapus entri registry yang berhubungan dengan aplikasi
-4. **Penghapusan Direktori**: Mengidentifikasi dan menghapus direktori aplikasi
-5. **Pembersihan File**: Menemukan dan menghapus file yang tersisa (dalam mode menyeluruh)
-6. **Pemindaian Registry Mendalam**: Memindai registry untuk referensi aplikasi tambahan (dalam mode menyeluruh)
-7. **Pelaporan**: Menghasilkan laporan terperinci tentang proses penghapusan
+1. **Deteksi Aplikasi**: Memindai registry Windows untuk mendeteksi semua aplikasi terinstal
+2. **Pemilihan Pengguna**: Menampilkan daftar aplikasi terdeteksi untuk dipilih pengguna
+3. **Pemindaian Registry**: Mencari entri penghapusan di registry Windows
+4. **Eksekusi Uninstaller**: Menjalankan uninstaller resmi aplikasi jika tersedia
+5. **Pembersihan Registry**: Menghapus entri registry yang berhubungan dengan aplikasi
+6. **Penghapusan Direktori**: Mengidentifikasi dan menghapus direktori aplikasi
+7. **Pembersihan File**: Menemukan dan menghapus file yang tersisa (dalam mode menyeluruh)
+8. **Pemindaian Registry Mendalam**: Memindai registry untuk referensi aplikasi tambahan (dalam mode menyeluruh)
+9. **Pelaporan**: Menghasilkan laporan terperinci tentang proses penghapusan
 
 ## Fitur Keamanan
 

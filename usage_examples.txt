@@ -1,22 +1,38 @@
 # Advanced Application Uninstaller - Usage Examples
 
+## Auto-detection and Selection (new feature)
+# Show interactive menu of all installed applications
+python uninstaller.py
+
+# Only list installed applications without uninstalling
+python uninstaller.py --list-only
+
 ## Basic Usage
-python uninstaller.py "Chrome"
+# Uninstall specific application by name
+python uninstaller.py --app-name "Chrome"
 
 ## Thorough Cleaning (removes all files and registry entries)
-python uninstaller.py "Google Chrome" --thorough
+python uninstaller.py --app-name "Google Chrome" --thorough
 
 ## Dry Run (preview what would be deleted without making changes)
-python uninstaller.py "Firefox" --dry-run
+python uninstaller.py --app-name "Firefox" --dry-run
 
 ## No Backup (skip creating backup of files and registry)
-python uninstaller.py "Adobe Reader" --no-backup
+python uninstaller.py --app-name "Adobe Reader" --no-backup
 
 ## Combining Options
-python uninstaller.py "Microsoft Office" --thorough --dry-run
-python uninstaller.py "Spotify" --thorough --no-backup
+python uninstaller.py --app-name "Microsoft Office" --thorough --dry-run
+python uninstaller.py --app-name "Spotify" --thorough --no-backup
 
 # Note: Always enclose application names with spaces in quotes
 # For example:
-python uninstaller.py "Google Chrome"
-python uninstaller.py "Microsoft Office 365" 
+python uninstaller.py --app-name "Google Chrome"
+python uninstaller.py --app-name "Microsoft Office 365"
+
+# Interactive Mode Tips:
+# - Use pagination to navigate through the app list (n: next page, p: previous page)
+# - Select multiple apps by comma-separated numbers (e.g., 1,3,5)
+# - Select a range of apps using hyphens (e.g., 5-10)
+# - Type 'all' to select all applications
+# - Type 'q', 'quit', or 'exit' to exit without uninstalling
+# - Type 'help' to see help information 
