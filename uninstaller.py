@@ -758,146 +758,166 @@ def main():
     if not sys.platform.startswith('win'):
         logger.error("This script only supports Windows systems")
         sys.exit(1)
+    
+    # Keep running until user chooses to exit
+    while True:
+        # Parse command line arguments
+        args = parse_arguments()
         
-    # Parse command line arguments
-    args = parse_arguments()
-    
-    # Skip admin check for list-only mode
-    need_admin = not args.list_only
-    
-    # Request admin privileges if needed (except for list-only mode)
-    if need_admin and not is_admin():
-        logger.info("Requesting administrator privileges...")
-        request_admin()
-    
-    # Print banner
-    print("""
-    ╔═══════════════════════════════════════════════╗
-    ║                                               ║
-    ║  Advanced Application Uninstaller and Cleaner ║
-    ║                                               ║
-    ╚═══════════════════════════════════════════════╝
-    """)
-    
-    # Get list of installed applications
-    print("\nScanning for installed applications...")
-    installed_apps = get_installed_applications()
-    
-    if args.list_only:
-        print(f"\nFound {len(installed_apps)} installed applications:")
-        for i, app in enumerate(installed_apps, 1):
-            print(f"{i:3}. {app.get('DisplayName', 'Unknown')} "
-                  f"({app.get('DisplayVersion', 'Unknown Version')})")
-        sys.exit(0)
-    
-    # If app_name is specified, use it; otherwise, show selection menu
-    if args.app_name:
-        app_names = [args.app_name]
-        # Use command line arguments for mode options
-        thorough = args.thorough
-        dry_run = args.dry_run
-        backup = not args.no_backup
-    else:
-        selected_indices = display_app_selection_menu(installed_apps)
-        if not selected_indices:
-            print("No applications selected. Exiting.")
+        # Skip admin check for list-only mode
+        need_admin = not args.list_only
+        
+        # Request admin privileges if needed (except for list-only mode)
+        if need_admin and not is_admin():
+            logger.info("Requesting administrator privileges...")
+            request_admin()
+        
+        # Print banner
+        print("""
+        ╔═══════════════════════════════════════════════╗
+        ║                                               ║
+        ║  Advanced Application Uninstaller and Cleaner ║
+        ║                                               ║
+        ╚═══════════════════════════════════════════════╝
+        """)
+        
+        # Get list of installed applications
+        print("\nScanning for installed applications...")
+        installed_apps = get_installed_applications()
+        
+        if args.list_only:
+            print(f"\nFound {len(installed_apps)} installed applications:")
+            for i, app in enumerate(installed_apps, 1):
+                print(f"{i:3}. {app.get('DisplayName', 'Unknown')} "
+                    f"({app.get('DisplayVersion', 'Unknown Version')})")
             sys.exit(0)
-            
-        app_names = [installed_apps[i]["DisplayName"] for i in selected_indices]
         
-        # Add interactive mode selection if no command line arguments were provided
-        if not (args.thorough or args.dry_run or args.no_backup):
-            print("\n=== Uninstallation Mode Selection ===")
-            
-            # Thorough mode selection
-            while True:
-                thorough_choice = input("Enable thorough cleaning? (y/N): ").strip().lower()
-                if thorough_choice in ['y', 'yes', 'n', 'no', '']:
-                    thorough = thorough_choice in ['y', 'yes']
-                    break
-                print("Please enter 'y' or 'n'")
-            
-            # Dry run mode selection
-            while True:
-                dry_run_choice = input("Simulation mode (no actual changes)? (y/N): ").strip().lower()
-                if dry_run_choice in ['y', 'yes', 'n', 'no', '']:
-                    dry_run = dry_run_choice in ['y', 'yes']
-                    break
-                print("Please enter 'y' or 'n'")
-            
-            # Backup mode selection
-            while True:
-                backup_choice = input("Create backups before deletion? (Y/n): ").strip().lower()
-                if backup_choice in ['y', 'yes', 'n', 'no', '']:
-                    backup = backup_choice in ['y', 'yes', '']  # Default is Yes
-                    break
-                print("Please enter 'y' or 'n'")
-                
-            print("\n=== Selected Options ===")
-            print(f"Thorough Cleaning: {'Enabled' if thorough else 'Disabled'}")
-            print(f"Simulation Mode: {'Enabled' if dry_run else 'Disabled'}")
-            print(f"Create Backups: {'Enabled' if backup else 'Disabled'}")
-        else:
-            # Use command line arguments
+        # If app_name is specified, use it; otherwise, show selection menu
+        if args.app_name:
+            app_names = [args.app_name]
+            # Use command line arguments for mode options
             thorough = args.thorough
             dry_run = args.dry_run
             backup = not args.no_backup
-    
-    # Confirm with user
-    if not dry_run:
-        print(f"\nWarning: You are about to uninstall {len(app_names)} application(s):")
-        for name in app_names:
-            print(f" - {name}")
-        print("This operation cannot be undone" + (" (although backups will be created)" if backup else ""))
-        confirmation = input("\nDo you want to continue? (y/N): ")
-        
-        if confirmation.lower() != 'y':
-            print("Operation cancelled")
-            sys.exit(0)
-    
-    # Process each selected application
-    for app_name in app_names:
-        print(f"\n{'='*60}")
-        print(f"Processing: {app_name}")
-        print(f"{'='*60}")
-        
-        # Initialize and run the uninstaller
-        uninstaller = AppUninstaller(
-            app_name,
-            thorough=thorough,
-            dry_run=dry_run,
-            backup=backup
-        )
-        
-        print(f"\nStarting uninstallation process for {app_name}...")
-        print(f"Mode: {'Dry Run (no actual changes)' if dry_run else 'Real Uninstallation'}")
-        print(f"Thorough cleaning: {'Enabled' if thorough else 'Disabled'}")
-        print(f"Backup creation: {'Disabled' if not backup else 'Enabled'}")
-        
-        try:
-            # Perform the uninstallation
-            results = uninstaller.uninstall()
-            
-            # Generate and display the report
-            report = uninstaller.generate_report(results)
-            print("\n" + report)
-            
-            # Save the report to a file
-            report_file = f"uninstall_report_{app_name.replace(' ', '_').replace('/', '_').replace('\\', '_')}.txt"
-            with open(report_file, "w") as f:
-                f.write(report)
+        else:
+            selected_indices = display_app_selection_menu(installed_apps)
+            if not selected_indices:
+                print("No applications selected. Exiting.")
+                sys.exit(0)
                 
-            print(f"\nDetailed report saved to: {os.path.abspath(report_file)}")
+            app_names = [installed_apps[i]["DisplayName"] for i in selected_indices]
             
-        except KeyboardInterrupt:
-            print("\nOperation cancelled by user")
-            sys.exit(1)
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while uninstalling {app_name}: {e}")
-            print(f"\nAn unexpected error occurred while uninstalling {app_name}: {e}")
-            continue
-    
-    print("\nAll selected applications have been processed.")
+            # Add interactive mode selection if no command line arguments were provided
+            if not (args.thorough or args.dry_run or args.no_backup):
+                print("\n=== Uninstallation Mode Selection ===")
+                
+                # Thorough mode selection
+                while True:
+                    thorough_choice = input("Enable thorough cleaning? (y/N): ").strip().lower()
+                    if thorough_choice in ['y', 'yes', 'n', 'no', '']:
+                        thorough = thorough_choice in ['y', 'yes']
+                        break
+                    print("Please enter 'y' or 'n'")
+                
+                # Dry run mode selection
+                while True:
+                    dry_run_choice = input("Simulation mode (no actual changes)? (y/N): ").strip().lower()
+                    if dry_run_choice in ['y', 'yes', 'n', 'no', '']:
+                        dry_run = dry_run_choice in ['y', 'yes']
+                        break
+                    print("Please enter 'y' or 'n'")
+                
+                # Backup mode selection
+                while True:
+                    backup_choice = input("Create backups before deletion? (Y/n): ").strip().lower()
+                    if backup_choice in ['y', 'yes', 'n', 'no', '']:
+                        backup = backup_choice in ['y', 'yes', '']  # Default is Yes
+                        break
+                    print("Please enter 'y' or 'n'")
+                    
+                print("\n=== Selected Options ===")
+                print(f"Thorough Cleaning: {'Enabled' if thorough else 'Disabled'}")
+                print(f"Simulation Mode: {'Enabled' if dry_run else 'Disabled'}")
+                print(f"Create Backups: {'Enabled' if backup else 'Disabled'}")
+            else:
+                # Use command line arguments
+                thorough = args.thorough
+                dry_run = args.dry_run
+                backup = not args.no_backup
+        
+        # Confirm with user
+        if not dry_run:
+            print(f"\nWarning: You are about to uninstall {len(app_names)} application(s):")
+            for name in app_names:
+                print(f" - {name}")
+            print("This operation cannot be undone" + (" (although backups will be created)" if backup else ""))
+            confirmation = input("\nDo you want to continue? (y/N): ")
+            
+            if confirmation.lower() != 'y':
+                print("Operation cancelled")
+                
+                # Ask if user wants to start over or exit
+                continue_choice = input("\nDo you want to start over? (Y/n): ").strip().lower()
+                if continue_choice in ['n', 'no']:
+                    sys.exit(0)
+                # Continue the loop to start over
+                continue
+        
+        # Process each selected application
+        for app_name in app_names:
+            print(f"\n{'='*60}")
+            print(f"Processing: {app_name}")
+            print(f"{'='*60}")
+            
+            # Initialize and run the uninstaller
+            uninstaller = AppUninstaller(
+                app_name,
+                thorough=thorough,
+                dry_run=dry_run,
+                backup=backup
+            )
+            
+            print(f"\nStarting uninstallation process for {app_name}...")
+            print(f"Mode: {'Dry Run (no actual changes)' if dry_run else 'Real Uninstallation'}")
+            print(f"Thorough cleaning: {'Enabled' if thorough else 'Disabled'}")
+            print(f"Backup creation: {'Disabled' if not backup else 'Enabled'}")
+            
+            try:
+                # Perform the uninstallation
+                results = uninstaller.uninstall()
+                
+                # Generate and display the report
+                report = uninstaller.generate_report(results)
+                print("\n" + report)
+                
+                # Save the report to a file
+                report_file = f"uninstall_report_{app_name.replace(' ', '_').replace('/', '_').replace('\\', '_')}.txt"
+                with open(report_file, "w") as f:
+                    f.write(report)
+                    
+                print(f"\nDetailed report saved to: {os.path.abspath(report_file)}")
+                
+            except KeyboardInterrupt:
+                print("\nOperation cancelled by user")
+                break
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while uninstalling {app_name}: {e}")
+                print(f"\nAn unexpected error occurred while uninstalling {app_name}: {e}")
+                continue
+        
+        print("\nAll selected applications have been processed.")
+        
+        # Ask if user wants to uninstall more applications or exit
+        continue_choice = input("\nDo you want to uninstall more applications? (y/N): ").strip().lower()
+        if continue_choice not in ['y', 'yes']:
+            print("Thank you for using Advanced Application Uninstaller and Cleaner!")
+            break
+            
+        # If we get here, the loop will continue and start over
 
 if __name__ == "__main__":
-    main() 
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nOperation cancelled by user. Exiting...")
+        sys.exit(0) 
